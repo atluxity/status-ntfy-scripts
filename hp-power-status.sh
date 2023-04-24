@@ -1,10 +1,10 @@
 #!/bin/bash
 
-NTFY_TOPIC=$(hostname | sed 's/\./-/g')-$(dmidecode -t system | grep "Serial Number" | cut -d\  -f3)
+NTFY_TOPIC=$(hostname | sed 's/\./-/g')-$(/sbin/dmidecode -t system | grep "Serial Number" | cut -d\  -f3)
 
-present=$(hpasmcli -s "show powersupply" | grep -ci "Present  : Yes" )
-redundant=$(hpasmcli -s "show powersupply" | grep -ci "Redundant: Yes" )
-condition=$(hpasmcli -s "show powersupply" | grep -ci "Condition: Ok" )
+present=$(/sbin/hpasmcli -s "show powersupply" | grep -ci "Present  : Yes" )
+redundant=$(/sbin/hpasmcli -s "show powersupply" | grep -ci "Redundant: Yes" )
+condition=$(/sbin/hpasmcli -s "show powersupply" | grep -ci "Condition: Ok" )
 
 presentfile="/var/cache/$(basename $0 .sh)-present"
 redundantfile="/var/cache/$(basename $0 .sh)-redundant"
