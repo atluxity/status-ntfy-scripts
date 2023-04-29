@@ -1,0 +1,13 @@
+[Unit]
+Description=HP Power Status Script
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/root/status/hp-power-status.sh
+Restart=always
+RestartSec=60
+User=root
+
+[Install]
+WantedBy=multi-user.target
