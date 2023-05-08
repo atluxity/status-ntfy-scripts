@@ -36,8 +36,18 @@ if [[ -f "$CACHE_FILE" ]]; then
 fi
 
 
+CURRENT_HOUR=$(date +%H)
+
 # Check if the HTTP status code is not 200
 if (( HTTP_STATUS != 200 )); then
+    # Check if the time is between midnight and 6 AM
+    if (( CURRENT_HOUR >= 0 && CURRENT_HOUR < 6 )); then
+            sleep 300
+            HTTP_STATUS_RETRY=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            if (( HTTP_STATUS != 200 )); then
+                exit 0
+            fi
+    fi
     # Record the fail state in the cache file
     echo "$(date +%s)" > "$CACHE_FILE"
     # Send a push notification using NTFY
