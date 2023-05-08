@@ -44,7 +44,7 @@ if (( HTTP_STATUS != 200 )); then
     if (( CURRENT_HOUR >= 0 && CURRENT_HOUR < 6 )); then
             sleep 300
             HTTP_STATUS_RETRY=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-            if (( HTTP_STATUS != 200 )); then
+            if (( HTTP_STATUS_RETRY eq 200 )); then
                 exit 0
             fi
     fi
