@@ -1,0 +1,5 @@
+config.json
+snapshot_state.txt
+snapshot_state.txt.one
+digitalocean-snapshots.py.old
+digitalocean-snapshots.py.old2
