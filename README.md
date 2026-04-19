@@ -11,6 +11,7 @@ This repository is intentionally simple. Each script is meant to be run periodic
 - `website-mail-1kb-status.sh`: checks whether `http://mail.1kb.no` returns HTTP `200`.
 - `mailcow-health-status.sh`: checks the Mailcow version API at `https://mail.1kb.no` and can compare the reported version with the latest upstream release.
 - `hp-power-status.service`: example `systemd` unit for running `hp-power-status.sh` continuously with restart-on-exit behavior.
+- `mailcow-health-status.service`: example `systemd` unit for running `mailcow-health-status.sh` continuously with restart-on-exit behavior.
 
 ## ntfy topic design
 
@@ -47,6 +48,7 @@ Current behavior:
 - `hp-power-status.sh`: repeats failure alerts at most once per hour for the same condition.
 - `hp-raid-status.sh`: repeats failure alerts at most once per day for the same condition.
 - `website-mail-1kb-status.sh`: suppresses repeated website failure alerts for one hour.
+- `mailcow-health-status.sh`: suppresses repeated Mailcow response/version alerts for one hour.
 
 When a problem clears, the scripts remove the relevant cache file and may send a recovery notification depending on the script logic.
 
@@ -65,11 +67,13 @@ Hardware-specific scripts also require:
 
 - `/sbin/hpasmcli` for `hp-power-status.sh`
 - `/sbin/hpssacli` for `hp-raid-status.sh`
+- a Mailcow `ADMIN_API_KEY` for `mailcow-health-status.sh`
 
-The included `systemd` unit also assumes:
+The included `systemd` units also assume:
 
 - `systemd`
 - the script is installed at `/root/status/hp-power-status.sh`
+- the Mailcow script is installed at `/root/status/mailcow-health-status.sh`
 
 ## Running the scripts
 
@@ -82,7 +86,22 @@ bash website-mail-1kb-status.sh
 bash mailcow-health-status.sh
 ```
 
-`mailcow-health-status.sh` also supports:
+`mailcow-health-status.sh` requires:
+
+```bash
+export ADMIN_API_KEY=your-mailcow-admin-api-key
+```
+
+Optional overrides:
+
+```bash
+export MAILCOW_URL=https://mail.1kb.no
+export STRICT_LATEST_VERSION=1
+export MAX_CACHE_AGE=3600
+export NTFY_BASE_URL=https://ntfy.sh
+```
+
+It also supports:
 
 ```bash
 bash mailcow-health-status.sh --check
@@ -90,17 +109,38 @@ bash mailcow-health-status.sh --check
 
 That runs the same health logic but skips notifications and cache mutation, which is useful if you only want a status code.
 
-## Using the systemd unit
+## Using the systemd units
 
-The included unit is only an example for the power-supply check. It currently points to:
+The included units currently point to:
 
 ```text
 /root/status/hp-power-status.sh
+/root/status/mailcow-health-status.sh
 ```
 
 If you install the script somewhere else, update `ExecStart` before enabling the service.
 
-Typical install flow:
+For the Mailcow check, create an environment file first:
+
+```bash
+cat >/etc/default/mailcow-health-status <<'EOF'
+ADMIN_API_KEY=your-mailcow-admin-api-key
+MAILCOW_URL=https://mail.1kb.no
+STRICT_LATEST_VERSION=1
+MAX_CACHE_AGE=3600
+EOF
+```
+
+Typical install flow for the Mailcow check:
+
+```bash
+cp mailcow-health-status.sh /root/status/
+cp mailcow-health-status.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now mailcow-health-status.service
+```
+
+Typical install flow for the power-supply check:
 
 ```bash
 cp hp-power-status.sh /root/status/

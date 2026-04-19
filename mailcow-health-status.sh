@@ -26,8 +26,13 @@ NTFY_BASE_URL="${NTFY_BASE_URL%/}"
 
 respond_cache="/var/cache/$(basename "$0" .sh)-respond"
 version_cache="/var/cache/$(basename "$0" .sh)-version"
+CHECK_ONLY=0
 
 notify() {
+  if [ "$CHECK_ONLY" = "1" ]; then
+    return 0
+  fi
+
   local tags="$1"
   local title="$2"
   local priority="$3"
@@ -71,6 +76,22 @@ github_latest_release() {
     --max-time 30 \
     "$GITHUB_RELEASES_URL"
 }
+
+for arg in "$@"; do
+  case "$arg" in
+    --check|--status-only)
+      CHECK_ONLY=1
+      ;;
+    --help|-h)
+      echo "usage: $0 [--check|--status-only]"
+      exit 0
+      ;;
+    *)
+      echo "unknown argument: $arg" >&2
+      exit 2
+      ;;
+  esac
+done
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "missing required command: jq" >&2

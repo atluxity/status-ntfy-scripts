@@ -1,0 +1,14 @@
+[Unit]
+Description=Mailcow Health Status Script
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/mailcow-health-status
+ExecStart=/root/status/mailcow-health-status.sh
+Restart=always
+RestartSec=300
+User=root
+
+[Install]
+WantedBy=multi-user.target
