@@ -9,6 +9,7 @@ This repository is intentionally simple. Each script is meant to be run periodic
 - `hp-power-status.sh`: checks HP power supply presence, redundancy, and condition through `hpasmcli`.
 - `hp-raid-status.sh`: checks HP RAID controller, cache, battery/capacitor, and failed physical drives through `hpssacli`.
 - `website-mail-1kb-status.sh`: checks whether `http://mail.1kb.no` returns HTTP `200`.
+- `mailcow-health-status.sh`: checks the Mailcow version API at `https://mail.1kb.no` and can compare the reported version with the latest upstream release.
 - `hp-power-status.service`: example `systemd` unit for running `hp-power-status.sh` continuously with restart-on-exit behavior.
 
 ## ntfy topic design
@@ -55,6 +56,7 @@ These scripts assume a Linux host with:
 
 - `bash`
 - `curl`
+- `jq`
 - `hostname`
 - `dmidecode`
 - write access to `/var/cache`
@@ -77,7 +79,16 @@ Run them directly as root or another user with enough privileges for the hardwar
 bash hp-power-status.sh
 bash hp-raid-status.sh
 bash website-mail-1kb-status.sh
+bash mailcow-health-status.sh
 ```
+
+`mailcow-health-status.sh` also supports:
+
+```bash
+bash mailcow-health-status.sh --check
+```
+
+That runs the same health logic but skips notifications and cache mutation, which is useful if you only want a status code.
 
 ## Using the systemd unit
 
