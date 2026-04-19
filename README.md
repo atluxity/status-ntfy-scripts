@@ -86,7 +86,9 @@ bash website-mail-1kb-status.sh
 bash mailcow-health-status.sh
 ```
 
-`mailcow-health-status.sh` requires:
+`mailcow-health-status.sh` reads configuration from environment variables and, by default, from a `.env` file placed next to the script. Environment variables take precedence over values in that file.
+
+It requires:
 
 ```bash
 export ADMIN_API_KEY=your-mailcow-admin-api-key
@@ -101,13 +103,27 @@ export MAX_CACHE_AGE=3600
 export NTFY_BASE_URL=https://ntfy.sh
 ```
 
-It also supports:
+To point at a different env file:
 
 ```bash
-bash mailcow-health-status.sh --check
+bash mailcow-health-status.sh --env-file /path/to/mailcow.env
 ```
 
-That runs the same health logic but skips notifications and cache mutation, which is useful if you only want a status code.
+The same works with notifications enabled:
+
+```bash
+bash mailcow-health-status.sh --notify --env-file /path/to/mailcow.env
+```
+
+By default it only returns a status code and does not send ntfy notifications.
+
+To enable ntfy notifications and cache-file throttling, run it with:
+
+```bash
+bash mailcow-health-status.sh --notify
+```
+
+`--check` and `--status-only` are accepted as explicit no-notify modes, but that is already the default behavior.
 
 ## Using the systemd units
 
@@ -138,6 +154,12 @@ cp mailcow-health-status.sh /root/status/
 cp mailcow-health-status.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now mailcow-health-status.service
+```
+
+If you want cron-style notifications instead of the included looping `systemd` unit, use a cron entry like:
+
+```cron
+*/10 * * * * /root/status/mailcow-health-status.sh --notify --env-file /etc/default/mailcow-health-status
 ```
 
 Typical install flow for the power-supply check:
