@@ -15,7 +15,7 @@ This repository is intentionally simple. Each script is meant to be run periodic
 
 ## ntfy topic design
 
-The notification topic is built dynamically from:
+By default, the notification topic is built dynamically from:
 
 - the local hostname, with dots replaced by dashes
 - the system serial number from `dmidecode`
@@ -25,6 +25,8 @@ That produces topics like:
 ```text
 my-host-serialnumber
 ```
+
+Generated host topics are normalized to lowercase so serial-number casing does not create duplicate topics for the same machine.
 
 In this setup, the topic name is not treated as a secret. That is deliberate.
 
@@ -38,6 +40,15 @@ The goal is:
 This is not meant to be a hard security boundary. It is just a practical way to get low-friction per-host notification channels without worrying about random outside spam in normal use.
 
 If your threat model is different, you should use authenticated publishing or a self-hosted `ntfy` setup instead of relying on topic naming alone.
+
+The shell scripts accept these optional notification overrides:
+
+```bash
+export NTFY_BASE_URL=https://ntfy.sh
+export NTFY_TOPIC=my-explicit-topic
+```
+
+`NTFY_BASE_URL` may be set with or without a trailing slash. This is useful for publishing to a self-hosted ntfy endpoint without patching script source.
 
 ## How the scripts avoid alert spam
 
@@ -101,6 +112,7 @@ export MAILCOW_URL=https://mail.1kb.no
 export STRICT_LATEST_VERSION=1
 export MAX_CACHE_AGE=3600
 export NTFY_BASE_URL=https://ntfy.sh
+export NTFY_TOPIC=my-explicit-topic
 ```
 
 To point at a different env file:
@@ -175,7 +187,7 @@ systemctl enable --now hp-power-status.service
 
 - The scripts are host-specific and operational rather than general-purpose.
 - The repository currently contains shell scripts only; there is no test harness yet.
-- `ntfy.sh/$TOPIC` is used directly without extra abstraction on purpose.
+- `https://ntfy.sh` remains the default publish endpoint, but runtime configuration should be used for host-specific endpoints or explicit topics.
 
 ## License
 

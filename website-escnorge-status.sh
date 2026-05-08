@@ -7,7 +7,12 @@ URL="https://escnorge.no"
 CACHE_FILE="/var/cache/$(basename "$0").cache"
 
 # Set the notification service URL
-NTFY_URL="https://ntfy.sh/"$(hostname | sed 's/\./-/g')-$(/sbin/dmidecode -t system | grep "Serial Number" | cut -d\  -f3)
+NTFY_BASE_URL="${NTFY_BASE_URL:-https://ntfy.sh}"
+if [ -z "${NTFY_TOPIC:-}" ]; then
+    raw_ntfy_topic="$(hostname | sed 's/\./-/g')-$(/sbin/dmidecode -t system | grep "Serial Number" | cut -d\  -f3)"
+    NTFY_TOPIC="$(printf '%s' "$raw_ntfy_topic" | tr '[:upper:]' '[:lower:]')"
+fi
+NTFY_URL="${NTFY_BASE_URL%/}/$NTFY_TOPIC"
 
 # Set the notification title
 TITLE="Website Status"
@@ -56,4 +61,3 @@ else
     # If the error state resolves itself, clear the cache file
     rm -f "$CACHE_FILE"
 fi
-

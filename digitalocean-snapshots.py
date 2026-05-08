@@ -41,6 +41,7 @@ def write_current_state(current_state):
 # Function to send a notification using ntfy.sh
 # Inside the send_notification function:
 def send_notification(message, ntfy_topic):
+    ntfy_base_url = os.environ.get('NTFY_BASE_URL', 'https://ntfy.sh').rstrip('/')
     headers = {
         'Title': 'Digital Ocean Snapshot Change',
         'tags': 'ocean,camera_flash',
@@ -49,7 +50,7 @@ def send_notification(message, ntfy_topic):
          'message': message,
     }
 
-    response = requests.post(f'https://ntfy.sh/{ntfy_topic}', headers=headers, data=data)
+    response = requests.post(f'{ntfy_base_url}/{ntfy_topic}', headers=headers, data=data)
 
     if response.status_code != 200:
         print(f'Failed to send notification: {response.text}')  # Add this line for more details

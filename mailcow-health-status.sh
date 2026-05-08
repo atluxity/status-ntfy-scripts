@@ -93,7 +93,10 @@ GITHUB_RELEASES_URL="${GITHUB_RELEASES_URL:-https://api.github.com/repos/mailcow
 STRICT_LATEST_VERSION="${STRICT_LATEST_VERSION:-1}"
 MAX_CACHE_AGE="${MAX_CACHE_AGE:-3600}"
 NTFY_BASE_URL="${NTFY_BASE_URL:-https://ntfy.sh}"
-NTFY_TOPIC="${NTFY_TOPIC:-$(hostname | sed 's/\./-/g')-$(/sbin/dmidecode -t system | grep "Serial Number" | cut -d\  -f3)}"
+if [ -z "${NTFY_TOPIC:-}" ]; then
+  raw_ntfy_topic="$(hostname | sed 's/\./-/g')-$(/sbin/dmidecode -t system | grep "Serial Number" | cut -d\  -f3)"
+  NTFY_TOPIC="$(printf '%s' "$raw_ntfy_topic" | tr '[:upper:]' '[:lower:]')"
+fi
 
 MAILCOW_URL="${MAILCOW_URL%/}"
 NTFY_BASE_URL="${NTFY_BASE_URL%/}"
