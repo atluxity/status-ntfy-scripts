@@ -1,111 +1,130 @@
 # status-ntfy-scripts
 
-Small Bash monitoring scripts that check a few specific services or hardware states and send notifications to `ntfy.sh`.
+Small operational monitoring scripts that publish status changes to ntfy.
 
-This repository is intentionally simple. Each script is meant to be run periodically, usually from `systemd` or `cron`, and each one uses a cache file in `/var/cache` to avoid sending the same alert on every run.
+The scripts are intentionally simple: run them from `cron`, `systemd`, or another scheduler, and they check one host-local service or hardware state. Most scripts write cache files under `/var/cache` so the same failure does not notify on every run.
 
-## What is in this repo
+## What This Repo Is For
 
-- `hp-power-status.sh`: checks HP power supply presence, redundancy, and condition through `hpasmcli`.
-- `hp-raid-status.sh`: checks HP RAID controller, cache, battery/capacitor, and failed physical drives through `hpssacli`.
+Use this repo when you want lightweight host checks without a full monitoring stack. The scripts are useful for small servers where a direct ntfy push is enough.
+
+Included checks:
+
+- `hp-power-status.sh`: checks HP power supply presence, redundancy, and condition with `hpasmcli`.
+- `hp-raid-status.sh`: checks HP RAID controller, cache, battery/capacitor, and failed physical drives with `hpssacli`.
+- `website-escnorge-status.sh`: checks whether `https://escnorge.no` returns HTTP `200`.
 - `website-mail-1kb-status.sh`: checks whether `http://mail.1kb.no` returns HTTP `200`.
-- `mailcow-health-status.sh`: checks the Mailcow version API at `https://mail.1kb.no` and can compare the reported version with the latest upstream release.
-- `hp-power-status.service`: example `systemd` unit for running `hp-power-status.sh` continuously with restart-on-exit behavior.
-- `mailcow-health-status.service`: example `systemd` unit for running `mailcow-health-status.sh` continuously with restart-on-exit behavior.
+- `mailcow-health-status.sh`: checks the Mailcow API at `https://mail.1kb.no` and can compare the installed version with the latest upstream release.
+- `digitalocean-snapshots.py`: watches a DigitalOcean droplet snapshot list and notifies when snapshots are added or removed.
 
-## ntfy topic design
+Example units:
 
-By default, the notification topic is built dynamically from:
+- `hp-power-status.service`
+- `mailcow-health-status.service`
+
+## Quick Start
+
+Clone the repo on the host that should run the checks:
+
+```bash
+git clone https://github.com/atluxity/status-ntfy-scripts.git
+cd status-ntfy-scripts
+```
+
+Pick the script that matches the check you want, review its defaults, then run it manually once:
+
+```bash
+bash website-mail-1kb-status.sh
+```
+
+For host-specific publishing, set the ntfy endpoint at runtime:
+
+```bash
+export NTFY_BASE_URL=http://127.0.0.1:8085
+bash website-mail-1kb-status.sh
+```
+
+To use an explicit topic instead of the generated host topic:
+
+```bash
+export NTFY_TOPIC=my-server-status
+bash website-mail-1kb-status.sh
+```
+
+After the script behaves as expected, schedule it with `cron`, a timer, or one of the included `systemd` service examples.
+
+## Notification Configuration
+
+Most scripts publish to ntfy. By default they use:
+
+```bash
+NTFY_BASE_URL=https://ntfy.sh
+```
+
+`NTFY_BASE_URL` may be set with or without a trailing slash. Both of these produce the same publish URL:
+
+```bash
+export NTFY_BASE_URL=https://ntfy.sh
+export NTFY_BASE_URL=https://ntfy.sh/
+```
+
+The shell scripts support `NTFY_TOPIC`. If it is not set, they generate a topic from:
 
 - the local hostname, with dots replaced by dashes
 - the system serial number from `dmidecode`
 
-That produces topics like:
+Generated topics are lowercased, producing values like:
 
 ```text
 my-host-serialnumber
 ```
 
-Generated host topics are normalized to lowercase so serial-number casing does not create duplicate topics for the same machine.
-
-In this setup, the topic name is not treated as a secret. That is deliberate.
-
-The goal is:
-
-- each machine gets its own topic automatically
-- topics are specific enough that accidental collisions are unlikely
-- I do not need to maintain a manual list of topic names
-- I do not have to treat the topic as sensitive configuration
-
-This is not meant to be a hard security boundary. It is just a practical way to get low-friction per-host notification channels without worrying about random outside spam in normal use.
-
-If your threat model is different, you should use authenticated publishing or a self-hosted `ntfy` setup instead of relying on topic naming alone.
-
-The shell scripts accept these optional notification overrides:
-
-```bash
-export NTFY_BASE_URL=https://ntfy.sh
-export NTFY_TOPIC=my-explicit-topic
-```
-
-`NTFY_BASE_URL` may be set with or without a trailing slash. This is useful for publishing to a self-hosted ntfy endpoint without patching script source.
-
-## How the scripts avoid alert spam
-
-Each script writes state files under `/var/cache` when it sends a failure notification. On later runs, it checks the age of those files before sending the same alert again.
-
-Current behavior:
-
-- `hp-power-status.sh`: repeats failure alerts at most once per hour for the same condition.
-- `hp-raid-status.sh`: repeats failure alerts at most once per day for the same condition.
-- `website-mail-1kb-status.sh`: suppresses repeated website failure alerts for one hour.
-- `mailcow-health-status.sh`: suppresses repeated Mailcow response/version alerts for one hour.
-
-When a problem clears, the scripts remove the relevant cache file and may send a recovery notification depending on the script logic.
+The generated topic is meant to avoid hardcoded shared topics that can later attract spam. It is not a security boundary. For stronger control, use authenticated publishing or a self-hosted ntfy server.
 
 ## Requirements
 
-These scripts assume a Linux host with:
+Common requirements:
 
+- Linux
 - `bash`
 - `curl`
-- `jq`
 - `hostname`
-- `dmidecode`
-- write access to `/var/cache`
+- `dmidecode` when using generated shell topics
+- write access to `/var/cache` for scripts with alert throttling
 
-Hardware-specific scripts also require:
+Script-specific requirements:
 
-- `/sbin/hpasmcli` for `hp-power-status.sh`
-- `/sbin/hpssacli` for `hp-raid-status.sh`
-- a Mailcow `ADMIN_API_KEY` for `mailcow-health-status.sh`
+- `hp-power-status.sh`: `/sbin/hpasmcli`
+- `hp-raid-status.sh`: `/sbin/hpssacli`
+- `mailcow-health-status.sh`: `jq` and a Mailcow `ADMIN_API_KEY`
+- `digitalocean-snapshots.py`: Python 3, `requests`, and a `config.json`
 
-The included `systemd` units also assume:
+The included `systemd` units assume scripts are installed under `/root/status/`. Update `ExecStart` if you install them somewhere else.
 
-- `systemd`
-- the script is installed at `/root/status/hp-power-status.sh`
-- the Mailcow script is installed at `/root/status/mailcow-health-status.sh`
+## Running The Shell Checks
 
-## Running the scripts
-
-Run them directly as root or another user with enough privileges for the hardware tools and `/var/cache`:
+Run shell scripts as root, or as another user with enough permissions for hardware tools and `/var/cache`:
 
 ```bash
 bash hp-power-status.sh
 bash hp-raid-status.sh
+bash website-escnorge-status.sh
 bash website-mail-1kb-status.sh
-bash mailcow-health-status.sh
 ```
 
-`mailcow-health-status.sh` reads configuration from environment variables and, by default, from a `.env` file placed next to the script. Environment variables take precedence over values in that file.
+The HP scripts check hardware state and notify on failures and recoveries. The website scripts notify on failed HTTP status and send a recovery notification when a cached failure clears.
 
-It requires:
+## Mailcow Check
+
+`mailcow-health-status.sh` reads configuration from environment variables and, by default, from a `.env` file placed next to the script. Environment variables take precedence over values in the file.
+
+Required:
 
 ```bash
 export ADMIN_API_KEY=your-mailcow-admin-api-key
 ```
 
-Optional overrides:
+Optional:
 
 ```bash
 export MAILCOW_URL=https://mail.1kb.no
@@ -115,79 +134,114 @@ export NTFY_BASE_URL=https://ntfy.sh
 export NTFY_TOPIC=my-explicit-topic
 ```
 
-To point at a different env file:
-
-```bash
-bash mailcow-health-status.sh --env-file /path/to/mailcow.env
-```
-
-The same works with notifications enabled:
-
-```bash
-bash mailcow-health-status.sh --notify --env-file /path/to/mailcow.env
-```
-
-By default it only returns a status code and does not send ntfy notifications.
-
-To enable ntfy notifications and cache-file throttling, run it with:
+By default, the Mailcow check reports only through its exit status and stdout. Enable ntfy notifications with `--notify`:
 
 ```bash
 bash mailcow-health-status.sh --notify
 ```
 
-`--check` and `--status-only` are accepted as explicit no-notify modes, but that is already the default behavior.
+Use an explicit env file with:
 
-## Using the systemd units
+```bash
+bash mailcow-health-status.sh --notify --env-file /etc/default/mailcow-health-status
+```
 
-The included units currently point to:
+`--check` and `--status-only` are accepted as explicit no-notify modes.
+
+## DigitalOcean Snapshot Check
+
+`digitalocean-snapshots.py` expects `config.json` in the current working directory:
+
+```json
+{
+  "api_token": "your-digitalocean-api-token",
+  "droplet_id": "123456789",
+  "ntfy_topic": "my-snapshot-topic"
+}
+```
+
+Run it from the directory containing `config.json`:
+
+```bash
+python3 digitalocean-snapshots.py
+```
+
+The script stores previous snapshot IDs in `snapshot_state.txt` in the current working directory. It sends notifications only when snapshots are added or removed.
+
+To publish through a self-hosted ntfy endpoint:
+
+```bash
+NTFY_BASE_URL=http://127.0.0.1:8085 python3 digitalocean-snapshots.py
+```
+
+## Scheduling
+
+Cron example for the website check:
+
+```cron
+*/5 * * * * cd /root/status && NTFY_BASE_URL=http://127.0.0.1:8085 ./website-mail-1kb-status.sh
+```
+
+Cron example for Mailcow notifications:
+
+```cron
+*/10 * * * * /root/status/mailcow-health-status.sh --notify --env-file /etc/default/mailcow-health-status
+```
+
+The included service units are long-running restart loops. They currently point to:
 
 ```text
 /root/status/hp-power-status.sh
 /root/status/mailcow-health-status.sh
 ```
 
-If you install the script somewhere else, update `ExecStart` before enabling the service.
-
-For the Mailcow check, create an environment file first:
+Typical Mailcow service setup:
 
 ```bash
-cat >/etc/default/mailcow-health-status <<'EOF'
-ADMIN_API_KEY=your-mailcow-admin-api-key
-MAILCOW_URL=https://mail.1kb.no
-STRICT_LATEST_VERSION=1
-MAX_CACHE_AGE=3600
-EOF
-```
-
-Typical install flow for the Mailcow check:
-
-```bash
+install -d /root/status
 cp mailcow-health-status.sh /root/status/
 cp mailcow-health-status.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now mailcow-health-status.service
 ```
 
-If you want cron-style notifications instead of the included looping `systemd` unit, use a cron entry like:
-
-```cron
-*/10 * * * * /root/status/mailcow-health-status.sh --notify --env-file /etc/default/mailcow-health-status
-```
-
-Typical install flow for the power-supply check:
+Create `/etc/default/mailcow-health-status` before starting the service:
 
 ```bash
+ADMIN_API_KEY=your-mailcow-admin-api-key
+MAILCOW_URL=https://mail.1kb.no
+STRICT_LATEST_VERSION=1
+MAX_CACHE_AGE=3600
+NTFY_BASE_URL=http://127.0.0.1:8085
+```
+
+Typical HP power service setup:
+
+```bash
+install -d /root/status
 cp hp-power-status.sh /root/status/
 cp hp-power-status.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now hp-power-status.service
 ```
 
-## Notes
+## Alert Throttling
 
-- The scripts are host-specific and operational rather than general-purpose.
-- The repository currently contains shell scripts only; there is no test harness yet.
-- `https://ntfy.sh` remains the default publish endpoint, but runtime configuration should be used for host-specific endpoints or explicit topics.
+Scripts that notify on repeated failures use cache files to avoid noisy repeats:
+
+- `hp-power-status.sh`: repeats a failure at most once per hour for the same condition.
+- `hp-raid-status.sh`: repeats a failure at most once per day for the same condition.
+- `website-escnorge-status.sh`: suppresses repeated website failure alerts for one hour.
+- `website-mail-1kb-status.sh`: suppresses repeated website failure alerts for one hour.
+- `mailcow-health-status.sh`: suppresses repeated Mailcow response/version alerts for `MAX_CACHE_AGE`, defaulting to one hour.
+
+When a problem clears, the relevant cache file is removed. Some scripts also send a recovery notification.
+
+## Notes For Operators
+
+- Review each script before deploying it; several defaults are intentionally specific to the hosts and services they were written for.
+- Prefer runtime configuration through environment variables or env files. Do not patch source files after checkout just to change ntfy endpoints or topics.
+- If you publish to public `ntfy.sh`, avoid simple shared topics. Use generated per-host topics, explicit unique topics, authenticated publishing, or a self-hosted endpoint.
 
 ## License
 
