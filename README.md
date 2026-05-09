@@ -10,8 +10,13 @@ Use this repo when you want lightweight host checks without a full monitoring st
 
 Included checks:
 
-- `hp-power-status.sh`: checks HP power supply presence, redundancy, and condition with `hpasmcli`.
-- `hp-raid-status.sh`: checks HP RAID controller, cache, battery/capacitor, and failed physical drives with `hpssacli`.
+- `hp-smart-array-status.sh`: checks HP Smart Array controller, cache, battery/capacitor, logical drives, arrays, physical drives, predictive failures, and exposed spare-drive problems with `ssacli` or `hpssacli`.
+- `ipmi-platform-status.sh`: checks IPMI power supply, fan, and temperature sensor status with `ipmitool sensor`.
+- `hardware-journal-status.sh`: checks recent journal entries for hardware error signatures such as EDAC, MCE, ECC, I/O errors, and thermal events.
+- `filesystem-capacity-status.sh`: checks configured filesystems against warning and high used-percent thresholds.
+- `ipmi-sel-status.sh`: watches new IPMI SEL entries since the previous successful run.
+- `hp-power-status.sh`: compatibility wrapper for IPMI power-supply checks.
+- `hp-raid-status.sh`: compatibility wrapper for HP Smart Array checks.
 - `website-escnorge-status.sh`: checks whether `https://escnorge.no` returns HTTP `200`.
 - `website-mail-1kb-status.sh`: checks whether `http://mail.1kb.no` returns HTTP `200`.
 - `mailcow-health-status.sh`: checks the Mailcow API at `https://mail.1kb.no` and can compare the installed version with the latest upstream release.
@@ -94,8 +99,11 @@ Common requirements:
 
 Script-specific requirements:
 
-- `hp-power-status.sh`: `/sbin/hpasmcli`
-- `hp-raid-status.sh`: `/sbin/hpssacli`
+- `hp-smart-array-status.sh` / `hp-raid-status.sh`: `ssacli` or `hpssacli`
+- `ipmi-platform-status.sh` / `hp-power-status.sh`: `ipmitool`
+- `hardware-journal-status.sh`: `journalctl`
+- `filesystem-capacity-status.sh`: `df`
+- `ipmi-sel-status.sh`: `ipmitool`
 - `mailcow-health-status.sh`: `jq` and a Mailcow `ADMIN_API_KEY`
 - `digitalocean-snapshots.py`: Python 3, `requests`, and a `config.json`
 
@@ -108,11 +116,60 @@ Run shell scripts as root, or as another user with enough permissions for hardwa
 ```bash
 bash hp-power-status.sh
 bash hp-raid-status.sh
+bash hp-smart-array-status.sh --slot 0
+bash ipmi-platform-status.sh
+bash hardware-journal-status.sh --since "1 hour ago"
+bash filesystem-capacity-status.sh --path / --path /home --path /mnt/backups:85:95
+bash ipmi-sel-status.sh
 bash website-escnorge-status.sh
 bash website-mail-1kb-status.sh
 ```
 
-The HP scripts check hardware state and notify on failures and recoveries. The website scripts notify on failed HTTP status and send a recovery notification when a cached failure clears.
+The hardware scripts notify on failures and recoveries. Use `--no-notify`, `--check`, or `--status-only` to test locally without publishing to ntfy or updating failure/recovery cache state.
+
+### Hardware Checks
+
+The hardware scripts share these options:
+
+```bash
+--topic TOPIC
+--cache-dir DIR
+--env-file FILE
+--notify
+--no-notify
+```
+
+They also read the usual `NTFY_BASE_URL` and `NTFY_TOPIC` environment variables. New hardware scripts default their cache directory to:
+
+```text
+/var/cache/hardware-alerts
+```
+
+Tool availability is intentionally configurable. Missing optional tools skip cleanly; pass `--required` or set the matching `*_REQUIRED=1` variable when a host is expected to have that hardware source and missing coverage should alert.
+
+Smart Array examples:
+
+```bash
+bash hp-smart-array-status.sh --slot 0 --required
+SSACLI_BIN=/usr/sbin/ssacli bash hp-smart-array-status.sh --slot 0
+```
+
+IPMI platform examples:
+
+```bash
+bash ipmi-platform-status.sh --required
+bash ipmi-platform-status.sh --power-only
+bash hp-power-status.sh --required
+```
+
+Journal and filesystem examples:
+
+```bash
+HARDWARE_JOURNAL_SINCE="2 hours ago" bash hardware-journal-status.sh
+bash filesystem-capacity-status.sh --path /:85:95 --path /home:85:95 --path /mnt/backups:90:95
+```
+
+`ipmi-sel-status.sh` stores the last seen SEL event in the cache directory. On the first run it initializes a baseline instead of alerting on historical events.
 
 ## Mailcow Check
 
@@ -229,8 +286,9 @@ systemctl enable --now hp-power-status.service
 
 Scripts that notify on repeated failures use cache files to avoid noisy repeats:
 
-- `hp-power-status.sh`: repeats a failure at most once per hour for the same condition.
-- `hp-raid-status.sh`: repeats a failure at most once per day for the same condition.
+- New hardware scripts: repeat a failure at most once per `MAX_CACHE_AGE`, defaulting to one hour.
+- `hp-power-status.sh`: compatibility wrapper around `ipmi-platform-status.sh --power-only`.
+- `hp-raid-status.sh`: compatibility wrapper around `hp-smart-array-status.sh`.
 - `website-escnorge-status.sh`: suppresses repeated website failure alerts for one hour.
 - `website-mail-1kb-status.sh`: suppresses repeated website failure alerts for one hour.
 - `mailcow-health-status.sh`: suppresses repeated Mailcow response/version alerts for `MAX_CACHE_AGE`, defaulting to one hour.
@@ -241,7 +299,22 @@ When a problem clears, the relevant cache file is removed. Some scripts also sen
 
 - Review each script before deploying it; several defaults are intentionally specific to the hosts and services they were written for.
 - Prefer runtime configuration through environment variables or env files. Do not patch source files after checkout just to change ntfy endpoints or topics.
+- Keep scheduling, host-specific topics, thresholds, and systemd unit policy in the deployment repository. This repo owns reusable script logic.
 - If you publish to public `ntfy.sh`, avoid simple shared topics. Use generated per-host topics, explicit unique topics, authenticated publishing, or a self-hosted endpoint.
+
+## Testing
+
+Run shell syntax checks:
+
+```bash
+bash -n *.sh tests/run-hardware-checks.sh
+```
+
+Run the self-contained hardware parser tests:
+
+```bash
+tests/run-hardware-checks.sh
+```
 
 ## License
 
