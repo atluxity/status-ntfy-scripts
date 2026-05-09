@@ -12,7 +12,7 @@ Included checks:
 
 - `hp-smart-array-status.sh`: checks HP Smart Array controller, cache, battery/capacitor, logical drives, arrays, physical drives, predictive failures, and exposed spare-drive problems with `ssacli` or `hpssacli`.
 - `ipmi-platform-status.sh`: checks IPMI power supply, fan, and temperature sensor status with `ipmitool sensor`.
-- `hardware-journal-status.sh`: checks recent journal entries for hardware error signatures such as EDAC, MCE, ECC, I/O errors, and thermal events.
+- `hardware-journal-status.sh`: checks recent kernel journal entries for hardware error signatures such as EDAC, MCE, ECC, I/O errors, and thermal events.
 - `filesystem-capacity-status.sh`: checks configured filesystems against warning and high used-percent thresholds.
 - `ipmi-sel-status.sh`: watches new IPMI SEL entries since the previous successful run.
 - `hp-power-status.sh`: compatibility wrapper for IPMI power-supply checks.

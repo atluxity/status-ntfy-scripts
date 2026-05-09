@@ -80,7 +80,7 @@ if [ -z "$journalctl_bin" ] || [ ! -x "$journalctl_bin" ]; then
   exit 0
 fi
 
-journal_output="$("$journalctl_bin" --since "$SINCE" --no-pager 2>&1)"
+journal_output="$("$journalctl_bin" -k --since "$SINCE" --no-pager 2>&1)"
 journal_rc=$?
 if [ "$journal_rc" -ne 0 ]; then
   message="journalctl failed for hardware journal check: $journal_output"
