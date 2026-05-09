@@ -153,7 +153,7 @@ append_findings "$(printf '%s\n' "$config_detail" | awk -F: '
     gsub(/^[ \t]+|[ \t]+$/, "", value)
     if (value != "OK") print $0
   }
-  /^[ \t]*(physicaldrive|logicaldrive|array)[ \t]/ {
+  /^[ \t]*(physicaldrive|logicaldrive|array)[ \t].*:/ {
     value=$NF
     gsub(/^[ \t]+|[ \t]+$/, "", value)
     if (value != "OK") print $0

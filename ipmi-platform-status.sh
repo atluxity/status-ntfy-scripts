@@ -103,12 +103,12 @@ else
     {
       name=trim($1)
       lowered=tolower(name)
-      status=tolower(trim($NF))
+      status=tolower(trim($4))
       match_sensor=0
       if (power == 1 && lowered ~ /(power|pwr|psu|supply)/) match_sensor=1
       if (fans == 1 && lowered ~ /fan/) match_sensor=1
       if (temp == 1 && lowered ~ /(temp|thermal|ambient)/) match_sensor=1
-      if (match_sensor == 1 && status != "ok") print $0
+      if (match_sensor == 1 && status != "ok" && status != "na" && status !~ /^0x[0-9a-f]+$/) print $0
     }')"
 fi
 

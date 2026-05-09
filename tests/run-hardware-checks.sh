@@ -90,11 +90,13 @@ write_fake_ipmitool() {
 case "$1" in
   sensor)
     if [ "${IPMI_SCENARIO:-ok}" = "badfan" ]; then
-      echo "Fan 1 | 0 RPM | nr | na | na | na | na | na | na | cr"
+      echo "Fan 1 | 0 RPM | RPM | cr | na | na | na | na | na | na"
     else
-      echo "Power Supply 1 | 1 | discrete | 0x0100 | na | na | na | na | na | ok"
-      echo "Fan 1 | 4000 RPM | ok | na | na | na | na | na | na | ok"
-      echo "Temp 1 | 30 degrees C | ok | na | na | na | na | na | na | ok"
+      echo "Power Supply 1 | 75 | Watts | ok | na | na | na | na | na | na"
+      echo "Power Supplies | 0x1 | discrete | 0x0180 | na | na | na | na | na | na"
+      echo "Fan 1 | 4000 | RPM | ok | na | na | na | na | na | na"
+      echo "Temp 1 | 30 | degrees C | ok | na | na | na | na | 42 | 46"
+      echo "Temp 2 | na | degrees C | na | na | na | na | na | 42 | 46"
     fi
     ;;
   sel)
